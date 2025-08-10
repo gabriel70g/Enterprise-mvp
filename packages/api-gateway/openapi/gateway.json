@@ -1,0 +1,831 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Enterprise MVP - API Gateway",
+    "version": "1.0.0",
+    "description": "Gateway que expone la API pública compuesta de los microservicios CQRS con Event Sourcing."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3005",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID único de la orden"
+          },
+          "customerId": {
+            "type": "string",
+            "description": "ID del cliente"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "productId": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                },
+                "price": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "confirmed", "cancelled", "completed"]
+          },
+          "total": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "completed", "failed", "cancelled"]
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      },
+      "Inventory": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "reserved": {
+            "type": "integer"
+          },
+          "available": {
+            "type": "integer"
+          }
+        }
+      },
+      "CreateOrderRequest": {
+        "type": "object",
+        "required": ["customerId", "items"],
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "description": "ID del cliente"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["productId", "quantity", "price"],
+              "properties": {
+                "productId": {
+                  "type": "string",
+                  "description": "ID del producto"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "description": "Cantidad del producto"
+                },
+                "price": {
+                  "type": "number",
+                  "description": "Precio unitario del producto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConfirmOrderRequest": {
+        "type": "object",
+        "properties": {}
+      },
+      "CancelOrderRequest": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Motivo de la cancelación"
+          }
+        }
+      },
+      "ProcessPaymentRequest": {
+        "type": "object",
+        "required": ["orderId", "amount"],
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "ID de la orden a pagar"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Monto a pagar"
+          }
+        }
+      },
+      "CancelPaymentRequest": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Motivo de la cancelación del pago"
+          }
+        }
+      },
+      "ReserveProductRequest": {
+        "type": "object",
+        "required": ["orderId", "productId", "quantity"],
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "ID de la orden"
+          },
+          "productId": {
+            "type": "string",
+            "description": "ID del producto a reservar"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Cantidad a reservar"
+          }
+        }
+      },
+      "ReleaseProductRequest": {
+        "type": "object",
+        "required": ["orderId", "productId", "quantity"],
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "ID de la orden"
+          },
+          "productId": {
+            "type": "string",
+            "description": "ID del producto a liberar"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Cantidad a liberar"
+          }
+        }
+      },
+      "UpdateInventoryRequest": {
+        "type": "object",
+        "required": ["productId", "quantity"],
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "ID del producto"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Nueva cantidad en inventario"
+          }
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "correlationId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "orderId": {
+        "name": "orderId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "ID de la orden"
+      },
+      "correlationId": {
+        "name": "X-Correlation-ID-test",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "ID de correlación para tracing"
+      }
+    }
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Información del API Gateway",
+        "description": "Endpoint raíz que muestra información general del sistema",
+        "responses": {
+          "200": {
+            "description": "Información del API Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "endpoints": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check del API Gateway",
+        "description": "Verifica el estado de salud del API Gateway",
+        "responses": {
+          "200": {
+            "description": "Servicio funcionando correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "uptime": {
+                      "type": "number"
+                    },
+                    "serviceUrls": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders": {
+      "post": {
+        "summary": "Crear una nueva orden",
+        "description": "Crea una nueva orden en el sistema",
+        "tags": ["Orders"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Orden creada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "orderId": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/{orderId}/confirm": {
+      "put": {
+        "summary": "Confirmar una orden",
+        "description": "Confirma una orden existente",
+        "tags": ["Orders"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Orden confirmada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/{orderId}/cancel": {
+      "put": {
+        "summary": "Cancelar una orden",
+        "description": "Cancela una orden existente",
+        "tags": ["Orders"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Orden cancelada exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orders/health": {
+      "get": {
+        "summary": "Health check del Order Service",
+        "description": "Verifica el estado de salud del servicio de órdenes",
+        "tags": ["Orders"],
+        "responses": {
+          "200": {
+            "description": "Servicio funcionando correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments": {
+      "post": {
+        "summary": "Procesar un pago",
+        "description": "Procesa un pago para una orden",
+        "tags": ["Payments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcessPaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pago procesado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "paymentId": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/{orderId}/cancel": {
+      "put": {
+        "summary": "Cancelar un pago",
+        "description": "Cancela un pago existente",
+        "tags": ["Payments"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/orderId"
+          },
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelPaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pago cancelado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/health": {
+      "get": {
+        "summary": "Health check del Payment Service",
+        "description": "Verifica el estado de salud del servicio de pagos",
+        "tags": ["Payments"],
+        "responses": {
+          "200": {
+            "description": "Servicio funcionando correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/reserve": {
+      "post": {
+        "summary": "Reservar un producto",
+        "description": "Reserva un producto del inventario",
+        "tags": ["Inventory"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveProductRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Producto reservado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/release": {
+      "post": {
+        "summary": "Liberar un producto",
+        "description": "Libera un producto previamente reservado",
+        "tags": ["Inventory"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseProductRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Producto liberado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/update": {
+      "post": {
+        "summary": "Actualizar inventario",
+        "description": "Actualiza la cantidad de un producto en inventario",
+        "tags": ["Inventory"],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInventoryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Inventario actualizado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "inventoryId": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/health": {
+      "get": {
+        "summary": "Health check del Inventory Service",
+        "description": "Verifica el estado de salud del servicio de inventario",
+        "tags": ["Inventory"],
+        "responses": {
+          "200": {
+            "description": "Servicio funcionando correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "service": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Orders",
+      "description": "Operaciones relacionadas con órdenes"
+    },
+    {
+      "name": "Payments", 
+      "description": "Operaciones relacionadas con pagos"
+    },
+    {
+      "name": "Inventory",
+      "description": "Operaciones relacionadas con inventario"
+    }
+  ]
+}

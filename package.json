@@ -1,0 +1,43 @@
+{
+  "name": "cqrs-enterprise-mvp",
+  "version": "1.0.0",
+  "description": "Enterprise MVP con CQRS, Event Sourcing y microservicios",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:gateway": "npm run build --workspace=api-gateway",
+    "build:order": "npm run build --workspace=order-service",
+    "build:payment": "npm run build --workspace=payment-service",
+    "build:inventory": "npm run build --workspace=inventory-service",
+    "dev:gateway": "npm run dev --workspace=api-gateway",
+    "dev:order": "npm run dev --workspace=order-service",
+    "dev:payment": "npm run dev --workspace=payment-service",
+    "dev:inventory": "npm run dev --workspace=inventory-service",
+    "start:monorepo": "./start-monorepo.sh",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules",
+    "clean:all": "rm -rf packages/*/dist packages/*/node_modules node_modules",
+    "install:all": "npm install && npm run install:workspaces",
+    "install:workspaces": "npm install --workspaces"
+  },
+  "keywords": [
+    "cqrs",
+    "event-sourcing",
+    "microservices",
+    "typescript",
+    "kafka",
+    "enterprise"
+  ],
+  "author": "Gabriel Alejandro Gomez",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/node": "^18.19.122",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
