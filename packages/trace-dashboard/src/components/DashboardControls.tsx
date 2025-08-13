@@ -3,23 +3,15 @@
 import React from 'react';
 import StatsDisplay from './StatsDisplay';
 import FilterControls from './FilterControls';
-import { useTraceData } from '../context/TraceContext'; // Import the hook
+import { useTraceData } from '../context/TraceContext';
 
 const DashboardControls: React.FC = () => {
-  const { stats } = useTraceData(); // Consume the context
+  const { stats } = useTraceData();
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(12, 1fr)',
-      gap: '5px',
-      padding: '5px',
-      backgroundColor: '#1a1c20',
-      color: 'white',
-      alignItems: 'start'
-    }}>
+    <div className="grid grid-cols-12 gap-1.5 p-1.5 bg-gray-900 text-white items-start">
       {/* Contadores (4/12) */}
-      <div style={{ gridColumn: 'span 4' }}>
+      <div className="col-span-4">
         <StatsDisplay 
           totalTraces={stats.total}
           pendingTraces={stats.pending}
@@ -29,8 +21,8 @@ const DashboardControls: React.FC = () => {
       </div>
 
       {/* Filtros (8/12) */}
-      <div style={{ gridColumn: 'span 8' }}>
-        <FilterControls  />
+      <div className="col-span-8">
+        <FilterControls />
       </div>
     </div>
   );

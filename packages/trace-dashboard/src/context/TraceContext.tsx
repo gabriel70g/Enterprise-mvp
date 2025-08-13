@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { Trace, useTraces } from '../hooks/useTraces';
 import { useTraceSocket } from '../hooks/useTraceSocket';
+import { useFilteredTraces } from '../hooks/useFilteredTraces';
 
 // Define the shape of the statistics object
 interface TraceStats {
@@ -16,6 +17,14 @@ interface TraceStats {
 interface TraceContextValue {
   traces: Trace[];
   stats: TraceStats;
+  filteredTraces: Trace[];
+  groupedFilteredTraces: any[];
+  filters: any;
+  availableOptions: { services: string[]; statuses: string[] };
+  hasActiveFilters: boolean;
+  updateFilter: (key: string, value: string) => void;
+  clearFilters: () => void;
+  clearAllTraces: () => void;
 }
 
 // Create the context with a default value
@@ -35,6 +44,18 @@ export const TraceProvider: React.FC<TraceProviderProps> = ({ children }) => {
   // Establish the WebSocket connection and link it to the addTrace function
   useTraceSocket(addTrace);
 
+  // Use the filtered traces hook
+  const {
+    filteredTraces,
+    groupedFilteredTraces,
+    filters,
+    availableOptions,
+    hasActiveFilters,
+    updateFilter,
+    clearFilters,
+    clearAllTraces
+  } = useFilteredTraces(traces);
+
   // Calculate statistics, memoizing the result for efficiency
   const stats = useMemo(() => {
     return traces.reduce(
@@ -52,6 +73,14 @@ export const TraceProvider: React.FC<TraceProviderProps> = ({ children }) => {
   const value = {
     traces,
     stats,
+    filteredTraces,
+    groupedFilteredTraces,
+    filters,
+    availableOptions,
+    hasActiveFilters,
+    updateFilter,
+    clearFilters,
+    clearAllTraces
   };
 
   return <TraceContext.Provider value={value}>{children}</TraceContext.Provider>;

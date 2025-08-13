@@ -1,3 +1,4 @@
+import './globals.css';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import MainContent from '../components/MainContent';
@@ -15,14 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <TraceProvider>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '98vh',
-            margin: 0,
-            padding: 10,
-            backgroundColor: '#1a1c20'
-          }}>
+          <div className="flex flex-col min-h-[98vh] m-0 p-2.5 bg-gray-900">
             <Header />
             <DashboardControls />
             <MainContent>{children}</MainContent>

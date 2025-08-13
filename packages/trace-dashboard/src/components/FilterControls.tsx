@@ -1,79 +1,78 @@
 import React from 'react';
+import { useTraceData } from '../context/TraceContext';
 
 const FilterControls: React.FC = () => {
+  const {
+    filters,
+    updateFilter,
+    clearFilters,
+    clearAllTraces,
+    availableOptions,
+    hasActiveFilters
+  } = useTraceData();
+
   return (
-    <div style={{
-      backgroundColor: '#3a3f47',
-      padding: '8px',
-      borderRadius: '8px',
-      marginTop: '5px',
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '5px',
-      justifyContent: 'center',
-      alignItems: 'center'
-    }}>
+    <div className="bg-[#3a3f47] p-1.5 rounded-lg mt-1 flex flex-wrap gap-2 justify-center items-center">
       <input
         type="text"
         placeholder="Filtrar por Correlation ID"
-        style={{
-          padding: '8px',
-          borderRadius: '4px',
-          border: '1px solid #555',
-          backgroundColor: '#282c34',
-          color: 'white',
-          width: '200px'
-        }}
+        value={filters.correlationId}
+        onChange={(e) => updateFilter('correlationId', e.target.value)}
+        className="px-2 py-1 rounded border border-[#555] bg-[#282c34] text-white text-sm w-48"
       />
       <select
-        style={{
-          padding: '8px',
-          borderRadius: '4px',
-          border: '1px solid #555',
-          backgroundColor: '#282c34',
-          color: 'white',
-          width: '150px'
-        }}
+        value={filters.service}
+        onChange={(e) => updateFilter('service', e.target.value)}
+        className="px-2 py-1 rounded border border-[#555] bg-[#282c34] text-white text-sm w-36"
       >
         <option value="">Todos los servicios</option>
-        <option value="api-gateway">API Gateway</option>
-        <option value="order-service">Order Service</option>
-        <option value="payment-service">Payment Service</option>
-        <option value="inventory-service">Inventory Service</option>
+        {availableOptions.services.map(service => (
+          <option key={service} value={service}>
+            {service}
+          </option>
+        ))}
       </select>
       <select
-        style={{
-          padding: '8px',
-          borderRadius: '4px',
-          border: '1px solid #555',
-          backgroundColor: '#282c34',
-          color: 'white',
-          width: '150px'
-        }}
+        value={filters.status}
+        onChange={(e) => updateFilter('status', e.target.value)}
+        className="px-2 py-1 rounded border border-[#555] bg-[#282c34] text-white text-sm w-32"
       >
         <option value="">Todos los estados</option>
-        <option value="pending">Pendientes</option>
-        <option value="completed">Completadas</option>
-        <option value="failed">Fallidas</option>
+        {availableOptions.statuses.map(status => (
+          <option key={status} value={status}>
+            {status === 'pending' ? 'Pendientes' : 
+             status === 'completed' ? 'Completadas' : 
+             status === 'failed' ? 'Fallidas' : status}
+          </option>
+        ))}
       </select>
-      <button style={{
-        padding: '8px 15px',
-        borderRadius: '4px',
-        border: 'none',
-        backgroundColor: '#667eea',
-        color: 'white',
-        cursor: 'pointer'
-      }}>
-        Limpiar Filtros
+      
+      {/* Botón Filtrar - siempre visible pero funcional */}
+      <button 
+        className="px-3 py-1 rounded border-none bg-[#667eea] text-white text-sm cursor-pointer hover:bg-[#5a6fd8] transition-colors"
+        onClick={() => {
+          // El filtrado ya funciona en tiempo real, este botón puede mostrar un mensaje
+          console.log('Filtros aplicados:', filters);
+        }}
+      >
+        Filtrar
       </button>
-      <button style={{
-        padding: '8px 15px',
-        borderRadius: '4px',
-        border: 'none',
-        backgroundColor: '#dc3545',
-        color: 'white',
-        cursor: 'pointer'
-      }}>
+      
+      {/* Botón Limpiar Filtros - solo cuando hay filtros activos */}
+      {hasActiveFilters && (
+        <button 
+          onClick={clearFilters}
+          className="px-3 py-1 rounded border-none bg-[#28a745] text-white text-sm cursor-pointer hover:bg-[#218838] transition-colors"
+        >
+          Limpiar Filtros
+        </button>
+      )}
+      
+      {/* Botón Limpiar Todas - siempre visible */}
+      <button 
+        onClick={clearAllTraces}
+        className="px-3 py-1 rounded border-none bg-[#dc3545] text-white text-sm cursor-pointer hover:bg-[#c82333] transition-colors"
+      >
         Limpiar Todas
       </button>
     </div>
