@@ -38,17 +38,6 @@ if ! command -v docker compose &> /dev/null; then
     exit 1
 fi
 
-print_status "Building Trace Dashboard..."
-cd packages/trace-dashboard
-npm install
-npm run build
-if [ $? -ne 0 ]; then
-    print_error "Failed to build Trace Dashboard"
-    exit 1
-fi
-print_success "Trace Dashboard built successfully"
-cd ../..
-
 print_status "Building Order Service..."
 cd packages/order-service
 npm install
@@ -92,6 +81,8 @@ if [ $? -ne 0 ]; then
 fi
 print_success "API Gateway built successfully"
 cd ../..
+
+print_success "All packages built successfully!"
 
 print_status "Starting infrastructure with Docker Compose..."
 cd infra
@@ -153,13 +144,6 @@ else
     print_warning "Inventory Service health check failed"
 fi
 
-# Check Trace Dashboard
-if curl -f http://localhost:3006/health > /dev/null 2>&1; then
-    print_success "Trace Dashboard is healthy"
-else
-    print_warning "Trace Dashboard health check failed"
-fi
-
 print_success "🎉 CQRS Monorepo Enterprise MVP is running!"
 echo ""
 echo "📋 Service URLs:"
@@ -168,7 +152,6 @@ echo "   API Docs:        http://localhost:3005/docs"
 echo "   Order Service:   http://localhost:3001"
 echo "   Payment Service: http://localhost:3002"
 echo "   Inventory Service: http://localhost:3003"
-echo "   Trace Dashboard: http://localhost:3006"
 echo ""
 echo "🔍 Kafka Topics:"
 echo "   orders-events, orders-commands, payments-events, inventory-events"

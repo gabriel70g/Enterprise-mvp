@@ -102,8 +102,7 @@ curl -X POST http://localhost:3005/api/orders \
   -H "X-Correlation-ID: quick-test" \
   -d '{
     "customerId": "quick-customer",
-    "items": [{"productId": "test-product", "quantity": 1, "unitPrice": 50.00}],
-    "totalAmount": 50.00
+    "items": [{"productId": "test-product", "quantity": 1, "unitPrice": 50.00}]
   }'
 ```
 # 2. Copiar el orderId de la respuesta y confirmar la orden
@@ -271,15 +270,13 @@ curl -X POST http://localhost:3005/api/orders \
   -H "Content-Type: application/json" \
   -H "X-Correlation-ID: multiple-test" \
   -d '{
-    "customerId": "test-customer",
+    "customerId": "test-customer-multiple",
     "items": [
       {"productId": "shirt-001", "quantity": 2, "unitPrice": 25.00},
       {"productId": "pants-001", "quantity": 1, "unitPrice": 45.00}
-    ],
-    "totalAmount": 95.00
+    ]
   }'
 ```
-
 #### **Test 3: Orden con Producto Agotado (simular error)**
 ```bash
 # Primero crear una orden normal

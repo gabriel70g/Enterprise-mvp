@@ -22,6 +22,7 @@ services:
     container_name: cqrs_monorepo_kafka
     ports:
       - "9092:9092"
+      - "29092:29092"
       - "9101:9101"
     environment:
       KAFKA_NODE_ID: 1
@@ -62,15 +63,56 @@ services:
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic orders-commands --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic payments-events --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic inventory-events --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic trace-events --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic dead-letter-queue --partitions 1 --replication-factor 1
         echo 'Kafka topics created successfully!'
         kafka-topics --bootstrap-server kafka:9092 --list
       "
     restart: "no"
 
+  trace-bff:
+    build:
+      context: ./packages/trace-bff
+      dockerfile: Dockerfile
+    container_name: cqrs_trace_bff
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  trace-dashboard:
+    build:
+      context: ./packages/trace-dashboard
+      dockerfile: Dockerfile
+    container_name: cqrs_trace_dashboard
+    ports:
+      - "3006:3000"
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_WEBSOCKET_URL: ws://trace-bff:8080
+    depends_on:
+      trace-bff:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   api-gateway:
     build:
-      context: ../packages/api-gateway
+      context: ./packages/api-gateway
       dockerfile: Dockerfile
     container_name: cqrs_api_gateway
     ports:
@@ -93,7 +135,7 @@ services:
 
   order-service:
     build:
-      context: ../services/order-service
+      context: ./packages/order-service
       dockerfile: Dockerfile
     container_name: cqrs_order_service
     ports:
@@ -116,7 +158,7 @@ services:
 
   payment-service:
     build:
-      context: ../services/payment-service
+      context: ./packages/payment-service
       dockerfile: Dockerfile
     container_name: cqrs_payment_service
     ports:
@@ -139,7 +181,7 @@ services:
 
   inventory-service:
     build:
-      context: ../services/inventory-service
+      context: ./packages/inventory-service
       dockerfile: Dockerfile
     container_name: cqrs_inventory_service
     ports:
