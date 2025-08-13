@@ -67,8 +67,8 @@ export const useFilteredTraces = (traces: Trace[]) => {
   // Usar el hook de agrupación sobre las trazas filtradas
   const groupedFilteredTraces = useGroupedTraces(filteredTraces);
 
-  // Función para actualizar filtros
-  const updateFilter = useCallback((key: keyof FilterState, value: string) => {
+  // Función para actualizar filtros - SIMPLE Y FÁCIL
+  const updateFilter = useCallback((key: string, value: string) => {
     console.log(`🔄 Actualizando filtro ${key}: "${value}"`);
     setFilters(prev => ({ ...prev, [key]: value }));
   }, []);

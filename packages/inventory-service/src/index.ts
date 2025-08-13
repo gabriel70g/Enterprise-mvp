@@ -4,6 +4,7 @@ import { CommandBus } from './application/command-bus';
 import { KafkaEventStore } from './infrastructure/event-store';
 import { InventoryController } from './controllers/inventory.controller';
 import { ReserveProductHandler, ReleaseProductHandler, UpdateInventoryHandler } from './application/inventory.command.handlers';
+import { traceInterceptor } from './middlewares/tracing';
 
 dotenv.config();
 
@@ -12,6 +13,9 @@ const port = process.env.PORT || 3003;
 
 // Middleware
 app.use(express.json());
+
+// Interceptor de tracing simple - una línea para implementar
+app.use('/', traceInterceptor);
 
 // Initialize CQRS components
 const eventStore = new KafkaEventStore(process.env.KAFKA_BROKERS || 'localhost:9092');
@@ -34,6 +38,7 @@ app.post('/inventory/update', (req, res) => inventoryController.updateInventory(
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'inventory-service' });
 });
+
 
 // Start server
 async function start() {

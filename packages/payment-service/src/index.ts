@@ -4,6 +4,7 @@ import { CommandBus } from './application/command-bus';
 import { KafkaEventStore } from './infrastructure/event-store';
 import { PaymentController } from './controllers/payment.controller';
 import { ProcessPaymentHandler, CancelPaymentHandler } from './application/payment.command.handlers';
+import { traceInterceptor } from './middlewares/tracing';
 
 dotenv.config();
 
@@ -12,6 +13,9 @@ const port = process.env.PORT || 3002;
 
 // Middleware
 app.use(express.json());
+
+// Interceptor de tracing simple - una línea para implementar
+app.use('/', traceInterceptor);
 
 // Initialize CQRS components
 const eventStore = new KafkaEventStore(process.env.KAFKA_BROKERS || 'localhost:9092');
@@ -32,6 +36,7 @@ app.put('/payments/:orderId/cancel', (req, res) => paymentController.cancelPayme
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'payment-service' });
 });
+
 
 // Start server
 async function start() {

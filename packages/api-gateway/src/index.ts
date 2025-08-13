@@ -2,8 +2,7 @@ import express from 'express';
 import type { Request } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { tracer } from './lib/tracer';
-import { tracingMiddleware } from './middlewares/tracing';
+import { traceInterceptor } from './middlewares/tracing';
 import swaggerSpec from '../openapi/gateway.json';
 import type { ClientRequest } from 'http';
 
@@ -29,9 +28,8 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'CQRS Enterprise MVP - API Gateway'
 }));
 
-// Este es el cambio clave: aplicamos nuestro middleware de trazabilidad a todas las rutas de la API.
-// Automáticamente registrará el inicio (pending) y el final (completed/failed) de cada solicitud.
-app.use('/api', tracingMiddleware);
+// Interceptor de tracing simple - una línea para implementar
+app.use('/api', traceInterceptor);
 
 // Cuando se usa `express.json()`, el cuerpo de la solicitud se consume.
 // `http-proxy-middleware` necesita que el cuerpo se re-transmita al servicio de destino.
@@ -91,9 +89,6 @@ app.use((req, res) => {
 // Start server logic
 const startServer = async () => {
   try {
-    // Connect the tracer's Kafka producer before starting the server
-    await tracer.connect();
-
     const server = app.listen(PORT, () => {
       console.log(`🚀 API Gateway running on port ${PORT}`);
       console.log(`📚 Swagger UI available at http://localhost:${PORT}/docs`);
@@ -102,15 +97,14 @@ const startServer = async () => {
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       console.log(`[${signal}] received, shutting down gracefully...`);
-      server.close(async () => {
+      server.close(() => {
         console.log('HTTP server closed.');
-        // The Kafka producer will be disconnected automatically when the process exits.
         process.exit(0);
       });
     };
 
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', gracefulShutdown);
+    process.on('SIGINT', gracefulShutdown);
   } catch (error) {
     console.error('Failed to start API Gateway:', error);
     process.exit(1);

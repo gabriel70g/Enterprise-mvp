@@ -4,6 +4,7 @@ import React, { createContext, useContext, useMemo, ReactNode } from 'react';
 import { Trace, useTraces } from '../hooks/useTraces';
 import { useTraceSocket } from '../hooks/useTraceSocket';
 import { useFilteredTraces } from '../hooks/useFilteredTraces';
+import { GroupedTrace } from '../hooks/useGroupedTraces';
 
 // Define the shape of the statistics object
 interface TraceStats {
@@ -13,13 +14,13 @@ interface TraceStats {
   failed: number;
 }
 
-// Define the shape of the context value
+// Define the shape of the context value - SIMPLE Y FÁCIL
 interface TraceContextValue {
   traces: Trace[];
   stats: TraceStats;
   filteredTraces: Trace[];
-  groupedFilteredTraces: any[];
-  filters: any;
+  groupedFilteredTraces: GroupedTrace[];
+  filters: { correlationId: string; service: string; status: string };
   availableOptions: { services: string[]; statuses: string[] };
   hasActiveFilters: boolean;
   updateFilter: (key: string, value: string) => void;

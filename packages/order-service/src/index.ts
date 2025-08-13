@@ -4,6 +4,7 @@ import { CommandBus } from './application/command-bus';
 import { KafkaEventStore } from './infrastructure/event-store';
 import { OrderController } from './controllers/order.controller';
 import { CreateOrderHandler, ConfirmOrderHandler, CancelOrderHandler } from './application/order.command.handlers';
+import { traceInterceptor } from './middlewares/tracing';
 
 dotenv.config();
 
@@ -12,6 +13,9 @@ const port = process.env.PORT || 3001;
 
 // Middleware
 app.use(express.json());
+
+// Interceptor de tracing simple - una línea para implementar
+app.use('/', traceInterceptor);
 
 // Initialize CQRS components
 const eventStore = new KafkaEventStore(process.env.KAFKA_BROKERS || 'localhost:9092');
@@ -34,6 +38,7 @@ app.put('/orders/:orderId/cancel', (req, res) => orderController.cancelOrder(req
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'order-service' });
 });
+
 
 // Start server
 async function start() {
