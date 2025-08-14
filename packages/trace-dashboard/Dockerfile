@@ -5,7 +5,7 @@ COPY package.json yarn.lock* package-lock.json* ./
 RUN \
   if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
   elif [ -f package-lock.json ]; then npm ci; \
-  else npm install; \
+  else npm install --legacy-peer-deps; \
   fi
 
 # Stage 2: Build the application
@@ -14,7 +14,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
+RUN npm run build --legacy-peer-deps
 
 # Stage 3: Run the application
 FROM node:18-alpine AS runner
@@ -31,5 +31,5 @@ COPY --from=builder /app/package.json ./
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["npm", "start", "--legacy-peer-deps"]
 

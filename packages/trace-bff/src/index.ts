@@ -1,12 +1,11 @@
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
-import { Kafka, logLevel } from 'kafkajs';
+import { connect, NatsConnection, Subscription, JSONCodec } from 'nats';
 
 const PORT = process.env.PORT || 8080;
-const KAFKA_BROKERS = process.env.KAFKA_BROKERS?.split(',') || ['kafka:9092'];
+const NATS_URL = process.env.NATS_URL || 'nats://localhost:4222';
 const TRACE_TOPIC = 'trace-events';
-const KAFKA_GROUP_ID = 'trace-bff-group';
 
 // 1. Initialize Express and HTTP server
 const app = express();
@@ -20,65 +19,62 @@ const io = new Server(server, {
   },
 });
 
-// 3. Setup Kafka client and consumer
-const kafka = new Kafka({
-  clientId: 'trace-bff',
-  brokers: KAFKA_BROKERS,
-  logLevel: logLevel.INFO,
-});
-
-const consumer = kafka.consumer({ groupId: KAFKA_GROUP_ID });
+// 3. Setup NATS client
+let natsConnection: NatsConnection;
+const jsonCodec = JSONCodec();
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-/**
- * Connects the Kafka consumer with a retry mechanism to handle startup race conditions.
- * @param consumer The Kafka consumer instance.
- * @param retries Number of retry attempts.
- * @param delay Delay between retries in milliseconds.
- */
-const connectWithRetry = async (consumer: ReturnType<typeof kafka.consumer>, retries = 5, delay = 3000) => {
-  for (let i = 1; i <= retries; i++) {
-    try {
-      await consumer.connect();
-      console.log('Kafka consumer connected successfully.');
-      return; // Exit loop on success
-    } catch (err) {
-      console.warn(`[Attempt ${i}/${retries}] Kafka connection failed. Retrying in ${delay / 1000}s...`);
-      if (i === retries) {
-        console.error('Fatal: Could not connect to Kafka after multiple retries.');
-        throw err; // Rethrow the last error
-      }
-      await new Promise(res => setTimeout(res, delay));
-    }
-  }
-};
-
 // Main function to run the service
 const run = async () => {
-  await connectWithRetry(consumer);
-  await consumer.subscribe({ topic: TRACE_TOPIC, fromBeginning: true });
+  try {
+    natsConnection = await connect({
+      servers: NATS_URL,
+      reconnect: true,
+      maxReconnectAttempts: -1,
+      reconnectTimeWait: 5000,
+    });
+    console.log(`Connected to NATS server at ${natsConnection.getServer()}`);
 
-  console.log(`Kafka consumer subscribed to topic: ${TRACE_TOPIC}`);
+    // Suscribirse al subject de trazas
+    const subscription = natsConnection.subscribe(TRACE_TOPIC);
+    console.log(`NATS consumer subscribed to subject: ${TRACE_TOPIC}`);
 
-  // Handle incoming Kafka messages
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      if (!message.value) return;
+    // Procesar mensajes de forma asíncrona
+    (async () => {
+      for await (const msg of subscription) {
+        try {
+          const parsedTrace = jsonCodec.decode(msg.data);
+          console.log(`Received trace from NATS:`, parsedTrace);
 
-      const trace = message.value.toString();
-      console.log(`Received trace from Kafka: ${trace}`); // Esto confirma que el mensaje de Kafka llegó
+          // Filtrar trazas que empiecen con "gen-" (health checks)
+          if (typeof parsedTrace === 'object' && parsedTrace !== null && 'correlationId' in parsedTrace && String(parsedTrace.correlationId).startsWith('gen-')) {
+            console.log(`Filtering out health check trace: ${parsedTrace.correlationId}`);
+            continue; // No enviar al dashboard
+          }
 
-      // Broadcast the trace to all connected socket clients
-      const parsedTrace = JSON.parse(trace);
-      io.emit('trace', parsedTrace);
-      // Este nuevo log confirma la emisión y nos dice cuántos clientes están escuchando
-      console.log(`Broadcasting trace event via Socket.IO to ${io.engine.clientsCount} client(s). [TraceID: ${parsedTrace.id}]`);
-    },
-  });
+          // Broadcast the trace to all connected socket clients
+          io.emit('trace', parsedTrace);
+          if (typeof parsedTrace === 'object' && parsedTrace !== null && 'id' in parsedTrace) {
+            console.log(`Broadcasting trace event via Socket.IO to ${io.engine.clientsCount} client(s). [TraceID: ${parsedTrace.id}]`);
+          }
+        } catch (error) {
+          console.error('Failed to process and broadcast trace message. Skipping.', {
+            subject: msg.subject,
+            // Loguear solo una parte del mensaje para no inundar los logs
+            data: msg.data.toString().substring(0, 200) + '...',
+            error,
+          });
+        }
+      }
+    })();
+  } catch (error) {
+    console.error('Failed to connect to NATS or subscribe:', error);
+    process.exit(1);
+  }
 
   // Handle Socket.IO connections
   io.on('connection', (socket) => {
@@ -102,7 +98,9 @@ run().catch((error) => {
 // Graceful shutdown
 const gracefulShutdown = async () => {
   console.log('Shutting down gracefully...');
-  await consumer.disconnect();
+  if (natsConnection) {
+    await natsConnection.close();
+  }
   server.close(() => {
     console.log('Server closed.');
     process.exit(0);

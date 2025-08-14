@@ -12,7 +12,7 @@ const FilterControls: React.FC = () => {
   } = useTraceData();
 
   return (
-    <div className="bg-[#3a3f47] p-1.5 rounded-lg mt-1 flex flex-wrap gap-2 justify-center items-center">
+    <div className="bg-[#3a3f47] p-1 rounded-lg mt-1 flex flex-wrap gap-3 justify-center items-center">
       <input
         type="text"
         placeholder="Filtrar por Correlation ID"

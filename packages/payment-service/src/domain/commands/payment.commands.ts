@@ -14,7 +14,8 @@ export class ProcessPaymentCommand extends BaseCommand {
   constructor(
     correlationId: string,
     public readonly orderId: string,
-    public readonly amount: number
+    public readonly amount: number,
+    public readonly customerId?: string
   ) {
     super(correlationId);
   }
@@ -23,7 +24,7 @@ export class ProcessPaymentCommand extends BaseCommand {
 export class CancelPaymentCommand extends BaseCommand {
   constructor(
     correlationId: string,
-    public readonly orderId: string,
+    public readonly paymentId: string,
     public readonly reason: string
   ) {
     super(correlationId);

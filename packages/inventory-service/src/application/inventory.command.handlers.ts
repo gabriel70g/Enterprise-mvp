@@ -1,53 +1,135 @@
 import { CommandHandler } from './command-bus';
-import { EventStore } from '../infrastructure/event-store';
+import { InventoryRepository } from '../infrastructure/inventory.repository';
 import { Inventory } from '../domain/inventory.aggregate';
-import { ReserveProductCommand, ReleaseProductCommand, UpdateInventoryCommand } from '../domain/commands/inventory.commands';
+import {
+  CreateInventoryCommand,
+  ReserveStockCommand,
+  ReleaseStockCommand,
+  MoveToInTransitCommand,
+  UpdateStockCommand,
+  DeactivateInventoryCommand,
+  ActivateInventoryCommand
+} from '../domain/commands/inventory.commands';
 
-export class ReserveProductHandler implements CommandHandler<ReserveProductCommand> {
-  constructor(private eventStore: EventStore) {}
+export class CreateInventoryHandler implements CommandHandler<CreateInventoryCommand> {
+  constructor(private inventoryRepository: InventoryRepository) {}
 
-  async handle(command: ReserveProductCommand): Promise<void> {
-    // In a real implementation, we would load the inventory from event store
-    // For now, we'll create a simple inventory with enough quantity
-    const inventory = new Inventory();
-    inventory.setInitialState(
+  async handle(command: CreateInventoryCommand): Promise<void> {
+    const inventory = new Inventory(
+      command.id,
       command.productId,
-      command.productId,
-      command.quantity + 10, // Ensure we have enough
-      0
+      command.name,
+      command.description,
+      command.availableQuantity,
+      command.minStockLevel,
+      command.category
     );
-    
-    inventory.reserve(command);
-    await this.eventStore.appendEvents(inventory.id, inventory.uncommittedEvents);
-    inventory.markEventsAsCommitted();
+
+    // Establecer correlationId para el agregado
+    inventory.setCorrelationId(command.correlationId);
+
+    await this.inventoryRepository.save(inventory);
   }
 }
 
-export class ReleaseProductHandler implements CommandHandler<ReleaseProductCommand> {
-  constructor(private eventStore: EventStore) {}
+export class ReserveStockHandler implements CommandHandler<ReserveStockCommand> {
+  constructor(private inventoryRepository: InventoryRepository) {}
 
-  async handle(command: ReleaseProductCommand): Promise<void> {
-    // In a real implementation, we would load the inventory from event store
-    const inventory = new Inventory();
-    inventory.setInitialState(
-      command.productId,
-      command.productId,
-      0, // No available quantity initially
-      command.quantity // Ensure we have enough reserved
-    );
-    
-    inventory.release(command);
-    await this.eventStore.appendEvents(inventory.id, inventory.uncommittedEvents);
-    inventory.markEventsAsCommitted();
+  async handle(command: ReserveStockCommand): Promise<void> {
+    const inventory = await this.inventoryRepository.findById(command.inventoryId);
+    if (!inventory) {
+      throw new Error(`Inventory not found: ${command.inventoryId}`);
+    }
+
+    // Establecer correlationId para el agregado
+    inventory.setCorrelationId(command.correlationId);
+
+    inventory.reserveStock(command.orderId, command.quantity);
+    await this.inventoryRepository.save(inventory);
   }
 }
 
-export class UpdateInventoryHandler implements CommandHandler<UpdateInventoryCommand> {
-  constructor(private eventStore: EventStore) {}
+export class ReleaseStockHandler implements CommandHandler<ReleaseStockCommand> {
+  constructor(private inventoryRepository: InventoryRepository) {}
 
-  async handle(command: UpdateInventoryCommand): Promise<void> {
-    const inventory = Inventory.create(command);
-    await this.eventStore.appendEvents(inventory.id, inventory.uncommittedEvents);
-    inventory.markEventsAsCommitted();
+  async handle(command: ReleaseStockCommand): Promise<void> {
+    const inventory = await this.inventoryRepository.findById(command.inventoryId);
+    if (!inventory) {
+      throw new Error(`Inventory not found: ${command.inventoryId}`);
+    }
+
+    // Establecer correlationId para el agregado
+    inventory.setCorrelationId(command.correlationId);
+
+    inventory.releaseStock(command.orderId, command.quantity);
+    await this.inventoryRepository.save(inventory);
+  }
+}
+
+export class MoveToInTransitHandler implements CommandHandler<MoveToInTransitCommand> {
+  constructor(private inventoryRepository: InventoryRepository) {}
+
+  async handle(command: MoveToInTransitCommand): Promise<void> {
+    const inventory = await this.inventoryRepository.findById(command.inventoryId);
+    if (!inventory) {
+      throw new Error(`Inventory not found: ${command.inventoryId}`);
+    }
+
+    // Establecer correlationId para el agregado
+    inventory.setCorrelationId(command.correlationId);
+
+    inventory.moveToInTransit(command.orderId, command.quantity);
+    await this.inventoryRepository.save(inventory);
+  }
+}
+
+export class UpdateStockHandler implements CommandHandler<UpdateStockCommand> {
+  constructor(private inventoryRepository: InventoryRepository) {}
+
+  async handle(command: UpdateStockCommand): Promise<void> {
+    const inventory = await this.inventoryRepository.findById(command.inventoryId);
+    if (!inventory) {
+      throw new Error(`Inventory not found: ${command.inventoryId}`);
+    }
+
+    // Establecer correlationId para el agregado
+    inventory.setCorrelationId(command.correlationId);
+
+    inventory.updateStock(command.newAvailableQuantity);
+    await this.inventoryRepository.save(inventory);
+  }
+}
+
+export class DeactivateInventoryHandler implements CommandHandler<DeactivateInventoryCommand> {
+  constructor(private inventoryRepository: InventoryRepository) {}
+
+  async handle(command: DeactivateInventoryCommand): Promise<void> {
+    const inventory = await this.inventoryRepository.findById(command.inventoryId);
+    if (!inventory) {
+      throw new Error(`Inventory not found: ${command.inventoryId}`);
+    }
+
+    // Establecer correlationId para el agregado
+    inventory.setCorrelationId(command.correlationId);
+
+    inventory.deactivate();
+    await this.inventoryRepository.save(inventory);
+  }
+}
+
+export class ActivateInventoryHandler implements CommandHandler<ActivateInventoryCommand> {
+  constructor(private inventoryRepository: InventoryRepository) {}
+
+  async handle(command: ActivateInventoryCommand): Promise<void> {
+    const inventory = await this.inventoryRepository.findById(command.inventoryId);
+    if (!inventory) {
+      throw new Error(`Inventory not found: ${command.inventoryId}`);
+    }
+
+    // Establecer correlationId para el agregado
+    inventory.setCorrelationId(command.correlationId);
+
+    inventory.activate();
+    await this.inventoryRepository.save(inventory);
   }
 }

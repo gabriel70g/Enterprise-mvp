@@ -12,6 +12,7 @@ interface TraceStats {
   pending: number;
   completed: number;
   failed: number;
+  averageDuration: number;
 }
 
 // Define the shape of the context value - SIMPLE Y FÁCIL
@@ -59,7 +60,7 @@ export const TraceProvider: React.FC<TraceProviderProps> = ({ children }) => {
 
   // Calculate statistics, memoizing the result for efficiency
   const stats = useMemo(() => {
-    return traces.reduce(
+    const result = traces.reduce(
       (acc, trace) => {
         acc.total += 1;
         if (trace.status === 'pending') acc.pending += 1;
@@ -67,8 +68,17 @@ export const TraceProvider: React.FC<TraceProviderProps> = ({ children }) => {
         if (trace.status === 'failed') acc.failed += 1;
         return acc;
       },
-      { total: 0, pending: 0, completed: 0, failed: 0 }
+      { total: 0, pending: 0, completed: 0, failed: 0, averageDuration: 0 }
     );
+
+    // Calculate average duration
+    const completedTraces = traces.filter(trace => trace.status === 'completed');
+    if (completedTraces.length > 0) {
+      const totalDuration = completedTraces.reduce((sum, trace) => sum + (trace.duration || 0), 0);
+      result.averageDuration = Math.round(totalDuration / completedTraces.length);
+    }
+
+    return result;
   }, [traces]);
 
   const value = {

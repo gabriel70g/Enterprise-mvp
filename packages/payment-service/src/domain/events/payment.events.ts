@@ -7,7 +7,7 @@ export class PaymentInitiatedEvent extends BaseDomainEvent {
     public readonly amount: number,
     public readonly correlationId: string
   ) {
-    super(aggregateId);
+    super(aggregateId, correlationId);
   }
 }
 
@@ -18,17 +18,27 @@ export class PaymentProcessedEvent extends BaseDomainEvent {
     public readonly amount: number,
     public readonly correlationId: string
   ) {
-    super(aggregateId);
+    super(aggregateId, correlationId);
+  }
+}
+
+export class PaymentConfirmedEvent extends BaseDomainEvent {
+  constructor(
+    aggregateId: string,
+    public readonly orderId: string,
+    public readonly amount: number,
+    public readonly correlationId: string
+  ) {
+    super(aggregateId, correlationId);
   }
 }
 
 export class PaymentFailedEvent extends BaseDomainEvent {
   constructor(
     aggregateId: string,
-    public readonly orderId: string,
     public readonly reason: string,
     public readonly correlationId: string
   ) {
-    super(aggregateId);
+    super(aggregateId, correlationId);
   }
 }

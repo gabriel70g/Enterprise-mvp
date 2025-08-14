@@ -8,8 +8,18 @@ Un **MVP Enterprise** que demuestra **CQRS + Event Sourcing + Microservicios** e
 - **Teoría sin práctica** = "CQRS es separar commands de queries" (¿y?)
 - **Práctica real** = "Mirá, creás una orden, se dispara un evento, otro servicio lo consume y actualiza inventario"
 
-## 🏗️ **Arquitectura del Monorepo**
+## ⚠️ **Importante: MVP Esquemático**
 
+**Este proyecto es un MVP conceptual:**
+- **Persistencia mínima** solo para demostrar Event Sourcing
+- **Órdenes se persisten** para poder confirmarlas/cancelarlas
+- **Eventos se almacenan** para demostrar el patrón
+- **Sin lógica de negocio real** (inventario, pagos, etc.)
+- **Puramente educativo** para entender los patrones
+
+## 🏗️ **Arquitectura y Flujo del Sistema**
+
+### **📊 Diagrama de Arquitectura**
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   API Gateway   │───▶│  Order Service  │───▶│     Kafka      │
@@ -22,7 +32,40 @@ Un **MVP Enterprise** que demuestra **CQRS + Event Sourcing + Microservicios** e
 │ Payment Service │    │Inventory Service│    │    PostgreSQL   │
 │   (Port 3002)   │    │   (Port 3003)   │    │   (Port 5432)   │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       ▼                       │
+         │                       ▼                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐
+│   Trace BFF     │    │ Trace Dashboard │
+│   (Port 8080)   │    │   (Port 3000)   │
+└─────────────────┘    └─────────────────┘
 ```
+
+### **🔄 Flujo de Eventos del MVP**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Crear Orden   │───▶│ Verificar Stock │───▶│ Reservar Stock  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Procesar Pago   │    │ Confirmar Orden │    │ Notificar       │
+│                 │    │                 │    │ Delivery        │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+**Explicación del flujo:**
+1. **Crear Orden**: Usuario crea orden (estado: pendiente)
+2. **Verificar Stock**: Inventory Service verifica disponibilidad (MVP: siempre hay stock)
+3. **Reservar Stock**: Stock se mueve a "en transito" con número de orden
+4. **Procesar Pago**: Payment Service procesa pago (MVP: siempre se aprueba)
+5. **Confirmar Orden**: Order Service confirma la orden
+6. **Notificar Delivery**: Inventory Service notifica que está listo para entrega
+
+**Nota**: En este MVP, el stock y pagos siempre se aprueban. Es un ejemplo conceptual.
+
+## 🏗️ **Estructura del Monorepo**
 
 ## 📁 **Estructura del Proyecto**
 
@@ -37,10 +80,12 @@ cqrs-enterprise-mvp/
     ├── api-gateway/            # ✅ Gateway principal
     ├── order-service/          # ✅ Servicio de órdenes
     ├── payment-service/        # ✅ Servicio de pagos
-    └── inventory-service/      # ✅ Servicio de inventario
+    ├── inventory-service/      # ✅ Servicio de inventario
+    ├── trace-bff/              # ✅ Backend para tracing
+    └── trace-dashboard/        # ✅ Dashboard de trazas en tiempo real
 ```
 
-## 🚀 **Quick Start**
+## 🚀 **Quick Start - Paso a Paso**
 
 ### **1. Prerequisitos**
 - Docker & Docker Compose
@@ -54,108 +99,45 @@ npm install
 npm run install:workspaces
 ```
 
-### **3. Levantar todo**
-
-#### **En macOS/Linux:**
+### **3. Levantar todo el sistema**
 ```bash
-# Opción 1: Dar permisos y ejecutar directamente
+# Opción 1: Script automático (recomendado)
 chmod +x start-monorepo.sh
 ./start-monorepo.sh
 
-# Opción 2: Usar npm (si prefieres)
+# Opción 2: NPM
 npm run start:monorepo
+
+# Opción 3: Docker Compose directo
+cd infra && docker compose up --build -d
 ```
 
-#### **En Windows:**
+### **4. Verificar que todo funciona**
 ```bash
-# En Windows no es necesario dar permisos
-# Ejecutar directamente (construye y levanta todo)
-npm run start:monorepo
+# Servicios principales
+curl http://localhost:3005/health                    # API Gateway
+curl http://localhost:3005/api/orders/health        # Order Service
+curl http://localhost:3005/api/payments/health      # Payment Service
+curl http://localhost:3005/api/inventory/health     # Inventory Service
+
+# Sistema de tracing
+curl http://localhost:8080/health                   # Trace BFF
+open http://localhost:3000                          # Trace Dashboard
+
+# Documentación
+open http://localhost:3005/docs                     # Swagger UI
 ```
 
-#### **Alternativa multiplataforma:**
-```bash
-# Usar Docker Compose directamente desde el directorio infra
-cd infra
-docker compose up --build -d
-```
+## 🧪 **Testing - Probar el Circuito Completo**
 
-### **4. Verificar que funciona**
-```bash
-# API Gateway
-curl http://localhost:3005/health
+### **🚀 Quick Test - Todo en 2 Minutos**
 
-# Order Service
-curl http://localhost:3001/health
-
-# Swagger UI
-open http://localhost:3005/docs
-```
-
-### **5. 🚀 Quick Test - Probar Todo en 2 Minutos**
-
-#### **Test Rápido del Circuito Completo:**
-```bash
-# 1. Crear una orden
-curl -X POST http://localhost:3005/api/orders \
-  -H "Content-Type: application/json" \
-  -H "X-Correlation-ID: quick-test" \
-  -d '{
-    "customerId": "quick-customer",
-    "items": [{"productId": "test-product", "quantity": 1, "unitPrice": 50.00}]
-  }'
-```
-# 2. Copiar el orderId de la respuesta y confirmar la orden
-```
-curl -X PUT http://localhost:3005/api/orders/ORDER_ID_AQUI/confirm \
-  -H "X-Correlation-ID: quick-test"
-```
-# 3. Ver logs para confirmar que todo funcionó
-```
-docker logs cqrs_payment_service | grep "quick-test"
-docker logs cqrs_inventory_service | grep "quick-test"
-```
-
-**✅ Si ves logs en ambos servicios, ¡todo el circuito CQRS está funcionando!**
-
-## 🧪 **Testing CQRS + Event Sourcing**
-
-### **Crear una orden**
-```bash
-curl -X POST http://localhost:3005/api/orders \
-  -H "Content-Type: application/json" \
-  -H "X-Correlation-ID-test: test-123" \
-  -d '{
-    "customerId": "customer-001",
-    "items": [
-      {
-        "productId": "product-001",
-        "quantity": 2,
-        "unitPrice": 29.99
-      }
-    ],
-    "totalAmount": 59.98
-  }'
-```
-
-### **Confirmar la orden**
-```bash
-# Usar el orderId del response anterior
-curl -X PUT http://localhost:3005/api/orders/ORDER_ID_HERE/confirm \
-  -H "X-Correlation-ID: test-123"
-```
-
-### **Cancelar la orden**
-```bash
-curl -X PUT http://localhost:3005/api/orders/ORDER_ID_HERE/cancel \
-  -H "Content-Type: application/json" \
-  -H "X-Correlation-ID: test-123" \
-  -d '{"reason": "Customer request"}'
-```
-
-## 🎯 **Ejemplos Prácticos - Circuito Completo CQRS**
-
-### **📋 Flujo Completo: Crear Orden → Procesar Pago → Actualizar Inventario**
+**Este test demuestra el flujo completo del MVP:**
+1. **Crear Orden** → Se dispara `OrderCreatedEvent`
+2. **Verificar Stock** → Inventory Service reserva automáticamente
+3. **Procesar Pago** → Payment Service procesa automáticamente
+4. **Confirmar Orden** → Se dispara `OrderConfirmedEvent`
+5. **Notificar Delivery** → Inventory Service notifica automáticamente
 
 #### **Paso 1: Crear una Orden**
 ```bash
@@ -201,8 +183,8 @@ curl -X PUT http://localhost:3005/api/orders/ORDER_ID_HERE/confirm \
 **Lo que pasa internamente:**
 - ✅ Se crea el evento `OrderConfirmedEvent`
 - ✅ Se publica en Kafka topic `orders-events`
-- ✅ El `PaymentService` consume el evento y procesa el pago
-- ✅ El `InventoryService` consume el evento y reserva productos
+- ✅ El `InventoryService` notifica que está listo para delivery
+- ✅ El sistema está listo para el siguiente paso (entrega)
 
 #### **Paso 3: Verificar el Pago Procesado**
 ```bash
@@ -238,7 +220,7 @@ curl -X PUT http://localhost:3005/api/orders/ORDER_ID_HERE/cancel \
 - ✅ Se crea el evento `OrderCancelledEvent`
 - ✅ Se publica en Kafka topic `orders-events`
 - ✅ El `PaymentService` cancela el pago
-- ✅ El `InventoryService` libera los productos reservados
+- ✅ El `InventoryService` libera el stock reservado (MVP: solo logs)
 
 #### **Paso 2: Verificar Cancelación del Pago**
 ```bash
@@ -314,6 +296,12 @@ docker logs -f cqrs_payment_service
 
 # Terminal 4: Inventory Service
 docker logs -f cqrs_inventory_service
+
+# Terminal 5: Trace BFF
+docker logs -f cqrs_trace_bff
+
+# Terminal 6: Trace Dashboard
+docker logs -f cqrs_trace_dashboard
 ```
 
 ### **📊 Verificar Estado Final**
@@ -324,10 +312,10 @@ docker logs -f cqrs_inventory_service
 curl http://localhost:3005/api/orders/ORDER_ID_HERE
 
 # 2. Pago procesado
-curl http://localhost:3002/payments/ORDER_ID_HERE
+curl http://localhost:3005/api/payments/ORDER_ID_HERE
 
 # 3. Inventario actualizado
-curl http://localhost:3003/inventory/PRODUCT_ID_HERE
+curl http://localhost:3005/api/inventory/PRODUCT_ID_HERE
 
 # 4. Eventos en Kafka
 docker exec cqrs_monorepo_kafka kafka-topics --bootstrap-server localhost:9092 --describe --topic orders-events
@@ -361,6 +349,26 @@ npm run start:monorepo     # Levantar todo con Docker Compose
 
 ## 🔍 **Monitoreo y Debugging**
 
+### **Sistema de Tracing en Tiempo Real**
+- **Dashboard de Trazas**: http://localhost:3000
+- **Trace BFF**: http://localhost:8080
+- **Filtrado automático** de health checks (`gen-*`)
+
+### **Formato de Trazas**
+```json
+{
+  "id": "uuid-unico",
+  "timestamp": "2025-08-13T19:12:23.984Z",
+  "service": "order-service",
+  "correlationId": "test-123",
+  "action": "Request|Response",
+  "status": "pending|completed|failed",
+  "duration": 20,
+  "orderId": "uuid-real",
+  "details": { "method": "POST", "path": "/api/orders" }
+}
+```
+
 ### **Ver logs en tiempo real**
 ```bash
 # API Gateway
@@ -379,20 +387,7 @@ docker ps
 docker compose ps
 ```
 
-### **Health checks**
-```bash
-# API Gateway
-curl http://localhost:3005/health
 
-# Order Service
-curl http://localhost:3001/health
-
-# Payment Service
-curl http://localhost:3002/health
-
-# Inventory Service
-curl http://localhost:3003/health
-```
 
 ## 🏗️ **Patrones Implementados**
 
@@ -400,6 +395,21 @@ curl http://localhost:3003/health
 - **Commands:** Mutaciones que cambian el estado del sistema
 - **Queries:** Consultas que solo leen datos
 - **Separación completa** de responsabilidades
+
+### **Flujo de Eventos en el MVP**
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Crear Orden   │───▶│ Verificar Stock │───▶│ Reservar Stock  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│ Procesar Pago   │    │ Confirmar Orden │    │ Notificar       │
+│                 │    │                 │    │ Delivery        │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+**Cada paso dispara eventos automáticamente via Kafka, creando un flujo reactivo y desacoplado.**
 
 ### **Event Sourcing**
 - **Event Store:** Registra todos los cambios como eventos
@@ -450,9 +460,9 @@ docker ps
 
 # Verificar health checks
 curl http://localhost:3005/health
-curl http://localhost:3001/health
-curl http://localhost:3002/health
-curl http://localhost:3003/health
+curl http://localhost:3005/api/orders/health
+curl http://localhost:3005/api/payments/health
+curl http://localhost:3005/api/inventory/health
 
 # Si algún servicio no responde, revisar logs
 docker logs cqrs_api_gateway

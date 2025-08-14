@@ -9,8 +9,7 @@ export class CommandBus {
     this.handlers.set(commandType, handler);
   }
 
-  async execute<T>(command: T): Promise<void> {
-    const commandType = (command as any).constructor.name;
+  async execute<T>(commandType: string, command: T): Promise<void> {
     const handler = this.handlers.get(commandType);
     
     if (!handler) {

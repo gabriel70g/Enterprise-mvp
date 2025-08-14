@@ -5,7 +5,7 @@ import { publishTrace } from '../lib/tracer';
 export const traceInterceptor = (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
   const correlationId = req.headers['x-correlation-id'] || `gen-${Date.now()}`;
-  const serviceName = req.path.split('/')[2] || 'api-gateway'; // /api/orders -> orders
+  const serviceName = process.env.SERVICE_NAME || 'api-gateway'; // /api/orders -> orders
   
   // Request - una línea
   publishTrace({ correlationId, action: 'Request', status: 'pending', duration: 0, service: serviceName });

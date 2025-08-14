@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cqrs_user -d cqrs_demo"]
@@ -70,18 +71,34 @@ services:
       "
     restart: "no"
 
+  nats:
+    image: nats:2.9-alpine
+    container_name: cqrs_monorepo_nats
+    ports:
+      - "4222:4222" # Puerto para clientes
+      - "8222:8222" # Puerto para monitoreo HTTP
+    # El comando -js habilita JetStream, el sistema de persistencia de NATS.
+    # -m 8222 habilita el puerto de monitoreo.
+    command: "-js -m 8222"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nats", "server", "check"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   trace-bff:
     build:
       context: ./packages/trace-bff
       dockerfile: Dockerfile
     container_name: cqrs_trace_bff
     ports:
-      - "8080:8080"
+      - "8081:8080"
     environment:
       PORT: 8080
-      KAFKA_BROKERS: kafka:9092
+      NATS_URL: nats://nats:4222
     depends_on:
-      kafka:
+      nats:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -99,7 +116,7 @@ services:
       - "3006:3000"
     environment:
       PORT: 3000
-      NEXT_PUBLIC_WEBSOCKET_URL: ws://trace-bff:8080
+      NEXT_PUBLIC_WEBSOCKET_URL: ws://localhost:8081
     depends_on:
       trace-bff:
         condition: service_healthy
@@ -116,12 +133,13 @@ services:
       dockerfile: Dockerfile
     container_name: cqrs_api_gateway
     ports:
-      - "3000:3000"
+      - "3005:3005"
     environment:
-      PORT: 3000
+      PORT: 3005
       ORDER_SERVICE_URL: http://order-service:3001
       PAYMENT_SERVICE_URL: http://payment-service:3002
       INVENTORY_SERVICE_URL: http://inventory-service:3003
+      NATS_URL: nats://nats:4222
     depends_on:
       - order-service
       - payment-service

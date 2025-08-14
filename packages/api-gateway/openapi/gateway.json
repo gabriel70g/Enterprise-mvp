@@ -45,10 +45,23 @@
             "type": "string",
             "enum": ["pending", "confirmed", "cancelled", "completed"]
           },
-          "total": {
-            "type": "number"
+          "totalAmount": {
+            "type": "number",
+            "description": "Monto total de la orden"
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "ID de correlación para tracing"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Versión del agregado para control de concurrencia"
           },
           "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
             "type": "string",
             "format": "date-time"
           }
@@ -57,35 +70,107 @@
       "Payment": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID único del pago"
+          },
           "orderId": {
-            "type": "string"
+            "type": "string",
+            "description": "ID de la orden asociada"
+          },
+          "customerId": {
+            "type": "string",
+            "description": "ID del cliente"
           },
           "amount": {
-            "type": "number"
+            "type": "number",
+            "description": "Monto del pago"
           },
           "status": {
             "type": "string",
-            "enum": ["pending", "completed", "failed", "cancelled"]
+            "enum": ["pending", "completed", "failed", "cancelled"],
+            "description": "Estado del pago"
           },
           "method": {
-            "type": "string"
+            "type": "string",
+            "description": "Método de pago"
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "ID de correlación para tracing"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Versión del agregado para control de concurrencia"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
       "Inventory": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID único del inventario"
+          },
           "productId": {
-            "type": "string"
+            "type": "string",
+            "description": "ID del producto"
           },
-          "quantity": {
-            "type": "integer"
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto"
           },
-          "reserved": {
-            "type": "integer"
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto"
           },
-          "available": {
-            "type": "integer"
+          "availableQuantity": {
+            "type": "integer",
+            "description": "Cantidad disponible"
+          },
+          "reservedQuantity": {
+            "type": "integer",
+            "description": "Cantidad reservada"
+          },
+          "inTransitQuantity": {
+            "type": "integer",
+            "description": "Cantidad en tránsito"
+          },
+          "minStockLevel": {
+            "type": "integer",
+            "description": "Nivel mínimo de stock"
+          },
+          "category": {
+            "type": "string",
+            "description": "Categoría del producto"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Estado activo del inventario"
+          },
+          "correlationId": {
+            "type": "string",
+            "description": "ID de correlación para tracing"
+          },
+          "version": {
+            "type": "integer",
+            "description": "Versión del agregado para control de concurrencia"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -194,15 +279,90 @@
           }
         }
       },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID único del producto"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio del producto"
+          },
+          "stock": {
+            "type": "integer",
+            "description": "Stock disponible"
+          },
+          "category": {
+            "type": "string",
+            "description": "Categoría del producto"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Estado activo del producto"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateInventoryRequest": {
+        "type": "object",
+        "required": ["id", "productId", "name", "availableQuantity", "minStockLevel", "category"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID único del inventario"
+          },
+          "productId": {
+            "type": "string",
+            "description": "ID del producto"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto"
+          },
+          "availableQuantity": {
+            "type": "integer",
+            "description": "Cantidad inicial disponible"
+          },
+          "minStockLevel": {
+            "type": "integer",
+            "description": "Nivel mínimo de stock"
+          },
+          "category": {
+            "type": "string",
+            "description": "Categoría del producto"
+          }
+        }
+      },
       "UpdateInventoryRequest": {
         "type": "object",
-        "required": ["productId", "quantity"],
+        "required": ["productId", "newAvailableQuantity"],
         "properties": {
           "productId": {
             "type": "string",
             "description": "ID del producto"
           },
-          "quantity": {
+          "newAvailableQuantity": {
             "type": "integer",
             "description": "Nueva cantidad en inventario"
           }
@@ -638,10 +798,10 @@
         }
       }
     },
-    "/api/inventory/reserve": {
+    "/api/inventory": {
       "post": {
-        "summary": "Reservar un producto",
-        "description": "Reserva un producto del inventario",
+        "summary": "Crear un nuevo inventario",
+        "description": "Crea un nuevo inventario para un producto",
         "tags": ["Inventory"],
         "parameters": [
           {
@@ -653,18 +813,200 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReserveProductRequest"
+                "$ref": "#/components/schemas/CreateInventoryRequest"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Producto reservado exitosamente",
+            "description": "Inventario creado exitosamente",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SuccessResponse"
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Listar inventarios",
+        "description": "Obtiene la lista de todos los inventarios con filtros opcionales",
+        "tags": ["Inventory"],
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filtrar por categoría"
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["true", "false"]
+            },
+            "description": "Filtrar por estado activo"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de inventarios obtenida exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Inventory"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/{id}": {
+      "get": {
+        "summary": "Obtener inventario por ID",
+        "description": "Obtiene un inventario específico por su ID",
+        "tags": ["Inventory"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID del inventario"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inventario obtenido exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Inventory"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inventario no encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/inventory/{id}/reserve": {
+      "post": {
+        "summary": "Reservar stock",
+        "description": "Reserva stock de un inventario específico",
+        "tags": ["Inventory"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID del inventario"
+          },
+          {
+            "$ref": "#/components/parameters/correlationId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["orderId", "productId", "quantity"],
+                "properties": {
+                  "orderId": {
+                    "type": "string",
+                    "description": "ID de la orden"
+                  },
+                  "productId": {
+                    "type": "string",
+                    "description": "ID del producto"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "description": "Cantidad a reservar"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stock reservado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -786,6 +1128,88 @@
         }
       }
     },
+    "/api/products": {
+      "get": {
+        "summary": "Listar productos",
+        "description": "Obtiene la lista de todos los productos del catálogo",
+        "tags": ["Products"],
+        "responses": {
+          "200": {
+            "description": "Lista de productos obtenida exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Product"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "summary": "Obtener producto por ID",
+        "description": "Obtiene un producto específico por su ID",
+        "tags": ["Products"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID del producto"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto obtenido exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Producto no encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/inventory/health": {
       "get": {
         "summary": "Health check del Inventory Service",
@@ -826,6 +1250,10 @@
     {
       "name": "Inventory",
       "description": "Operaciones relacionadas con inventario"
+    },
+    {
+      "name": "Products",
+      "description": "Operaciones relacionadas con el catálogo de productos"
     }
   ]
 }

@@ -14,7 +14,7 @@ export class CreateOrderCommand extends BaseCommand {
   constructor(
     correlationId: string,
     public readonly customerId: string,
-    public readonly items: Array<{ productId: string; quantity: number }>
+    public readonly items: Array<{ productId: string; quantity: number; price: number }>
   ) {
     super(correlationId);
   }

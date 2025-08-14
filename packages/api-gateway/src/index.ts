@@ -1,7 +1,8 @@
 import express from 'express';
 import type { Request } from 'express';
 import swaggerUi from 'swagger-ui-express';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { createProxyMiddleware, Options } from 'http-proxy-middleware';
+import { createOrderCommandProxy } from './middlewares/command.proxy';
 import { traceInterceptor } from './middlewares/tracing';
 import swaggerSpec from '../openapi/gateway.json';
 import type { ClientRequest } from 'http';
@@ -44,8 +45,16 @@ const onProxyReq = (proxyReq: ClientRequest, req: Request) => {
   }
 };
 
-// A single, smarter proxy for all API routes. This is more robust and maintainable.
-const apiProxy = createProxyMiddleware({
+// Ruta específica para crear órdenes de forma asíncrona
+app.post('/api/orders', createOrderCommandProxy);
+
+// Función de filtro para el proxy. Excluye las rutas que se manejan de forma especial.
+const apiProxyFilter = (pathname: string, req: Request) => {
+  return !(pathname.startsWith('/api/orders') && req.method === 'POST');
+};
+
+// Opciones para el proxy. Tiparlo explícitamente como `Options` resuelve la ambigüedad del typado.
+const apiProxyOptions: Options = {
   changeOrigin: true,
   logLevel: 'info',
   onProxyReq,
@@ -54,6 +63,7 @@ const apiProxy = createProxyMiddleware({
     '^/api/orders': '/orders',
     '^/api/payments': '/payments',
     '^/api/inventory': '/inventory',
+    '^/api/products': '/products', // Los productos son consultados en el order-service
   },
   router: (req) => {
     // The router decides which service to send the request to.
@@ -66,9 +76,15 @@ const apiProxy = createProxyMiddleware({
     if (req.path.startsWith('/api/inventory')) {
       return inventoryServiceUrl;
     }
+    if (req.path.startsWith('/api/products')) {
+      return orderServiceUrl; // El catálogo de productos es gestionado por el order-service
+    }
     return undefined; // Let Express handle it (will 404)
   },
-});
+};
+
+// A single, smarter proxy for all API routes. This is more robust and maintainable.
+const apiProxy = createProxyMiddleware(apiProxyFilter, apiProxyOptions);
 
 app.use('/api', apiProxy);
 

@@ -4,28 +4,29 @@ export class OrderCreatedEvent extends BaseDomainEvent {
   constructor(
     aggregateId: string,
     public readonly customerId: string,
-    public readonly items: Array<{ productId: string; quantity: number }>,
+    public readonly items: Array<{ productId: string; quantity: number; price: number }>,
+    public readonly totalAmount: number,
     public readonly correlationId: string
   ) {
-    super(aggregateId);
+    super(aggregateId, correlationId);
   }
 }
 
 export class OrderConfirmedEvent extends BaseDomainEvent {
   constructor(
     aggregateId: string,
+    public readonly totalAmount: number,
     public readonly correlationId: string
   ) {
-    super(aggregateId);
+    super(aggregateId, correlationId);
   }
 }
 
 export class OrderCancelledEvent extends BaseDomainEvent {
   constructor(
     aggregateId: string,
-    public readonly reason: string,
     public readonly correlationId: string
   ) {
-    super(aggregateId);
+    super(aggregateId, correlationId);
   }
 }

@@ -12,7 +12,7 @@ export interface Trace {
   payload: Record<string, unknown>;
 }
 
-const MAX_TRACES = 500;
+const MAX_TRACES = process.env.MAX_TRACES ? parseInt(process.env.MAX_TRACES) : 2000;
 const STORAGE_KEY = 'cqrs_dashboard_traces';
 
 // Helper to check if running in the browser

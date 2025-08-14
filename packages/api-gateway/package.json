@@ -13,6 +13,7 @@
     "express": "^4.19.2",
     "http-proxy-middleware": "^2.0.6",
     "kafkajs": "^2.2.4",
+    "nats": "^2.29.3",
     "on-finished": "^2.4.1",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^9.0.1"

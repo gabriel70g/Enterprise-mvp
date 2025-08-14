@@ -1,67 +1,105 @@
 import express from 'express';
-import dotenv from 'dotenv';
-import { CommandBus } from './application/command-bus';
 import { KafkaEventStore } from './infrastructure/event-store';
-import { InventoryController } from './controllers/inventory.controller';
-import { ReserveProductHandler, ReleaseProductHandler, UpdateInventoryHandler } from './application/inventory.command.handlers';
+import { EventSourcedInventoryRepository } from './infrastructure/inventory.repository';
+import { CommandBus } from './application/command-bus';
+import {
+  CreateInventoryHandler,
+  ReserveStockHandler,
+  ReleaseStockHandler,
+  MoveToInTransitHandler,
+  UpdateStockHandler,
+  DeactivateInventoryHandler,
+  ActivateInventoryHandler
+} from './application/inventory.command.handlers';
 import { traceInterceptor } from './middlewares/tracing';
-
-dotenv.config();
+import { OrderEventConsumer } from './infrastructure/order.event.consumer';
+import { InventoryController } from './controllers/inventory.controller';
 
 const app = express();
-const port = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3003;
 
 // Middleware
 app.use(express.json());
-
-// Interceptor de tracing simple - una línea para implementar
 app.use('/', traceInterceptor);
 
-// Initialize CQRS components
-const eventStore = new KafkaEventStore(process.env.KAFKA_BROKERS || 'localhost:9092');
+// Event Store y Repository
+const eventStore = new KafkaEventStore();
+const inventoryRepository = new EventSourcedInventoryRepository(eventStore);
+
+// Command Bus
 const commandBus = new CommandBus();
 
-// Register command handlers
-commandBus.register('ReserveProductCommand', new ReserveProductHandler(eventStore));
-commandBus.register('ReleaseProductCommand', new ReleaseProductHandler(eventStore));
-commandBus.register('UpdateInventoryCommand', new UpdateInventoryHandler(eventStore));
+// Registrar command handlers
+commandBus.register('CreateInventoryCommand', new CreateInventoryHandler(inventoryRepository));
+commandBus.register('ReserveStockCommand', new ReserveStockHandler(inventoryRepository));
+commandBus.register('ReleaseStockCommand', new ReleaseStockHandler(inventoryRepository));
+commandBus.register('MoveToInTransitCommand', new MoveToInTransitHandler(inventoryRepository));
+commandBus.register('UpdateStockCommand', new UpdateStockHandler(inventoryRepository));
+commandBus.register('DeactivateInventoryCommand', new DeactivateInventoryHandler(inventoryRepository));
+commandBus.register('ActivateInventoryCommand', new ActivateInventoryHandler(inventoryRepository));
 
-// Initialize controller
-const inventoryController = new InventoryController(commandBus);
+// Controller
+const inventoryController = new InventoryController(commandBus, inventoryRepository);
 
-// Routes
-app.post('/inventory/reserve', (req, res) => inventoryController.reserveProduct(req, res));
-app.post('/inventory/release', (req, res) => inventoryController.releaseProduct(req, res));
-app.post('/inventory/update', (req, res) => inventoryController.updateInventory(req, res));
+// API Endpoints usando el Controller
+app.post('/inventory', (req, res) => inventoryController.createInventory(req, res));
+
+app.post('/inventory/:id/reserve', (req, res) => inventoryController.reserveStock(req, res));
+
+app.post('/inventory/:id/release', (req, res) => inventoryController.releaseStock(req, res));
+
+app.post('/inventory/:id/move-to-in-transit', (req, res) => inventoryController.moveToInTransit(req, res));
+
+app.put('/inventory/:id/stock', (req, res) => inventoryController.updateStock(req, res));
+
+app.post('/inventory/:id/deactivate', (req, res) => inventoryController.deactivateInventory(req, res));
+
+app.post('/inventory/:id/activate', (req, res) => inventoryController.activateInventory(req, res));
+
+// Query endpoints usando el Controller
+app.get('/inventory/:id', (req, res) => inventoryController.getInventory(req, res));
+app.get('/inventory', (req, res) => inventoryController.getAllInventories(req, res));
+app.get('/inventory/low-stock', (req, res) => inventoryController.getLowStockInventories(req, res));
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', service: 'inventory-service' });
+  return res.status(200).json({ status: 'OK', service: 'inventory-service' });
 });
 
-
-// Start server
-async function start() {
+// Inicializar servicios
+async function startServices() {
   try {
     await eventStore.connect();
-    console.log('Connected to Kafka');
-
-    app.listen(port, () => {
-      console.log(`Inventory Service running on port ${port}`);
+    console.log('✅ Event Store connected');
+    
+    // Iniciar consumidor de eventos de órdenes
+    const orderEventConsumer = new OrderEventConsumer(eventStore);
+    await orderEventConsumer.start();
+    console.log('✅ Order Event Consumer started');
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Inventory Service running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Failed to start service:', error);
+    console.error('❌ Failed to start services:', error);
     process.exit(1);
   }
 }
 
-start();
-
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully');
+  console.log('🔄 Shutting down Inventory Service...');
   await eventStore.disconnect();
   process.exit(0);
 });
+
+process.on('SIGINT', async () => {
+  console.log('🔄 Shutting down Inventory Service...');
+  await eventStore.disconnect();
+  process.exit(0);
+});
+
+// Iniciar servicios
+startServices();
 
 

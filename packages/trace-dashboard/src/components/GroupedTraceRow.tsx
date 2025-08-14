@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { GroupedTrace } from '../hooks/useGroupedTraces';
 import { getStatusInfo } from '../config/statusConfig';
+import OrderStatusBadge from './OrderStatusBadge';
+import OrderFlowTimeline from './OrderFlowTimeline';
+import { mapTraceStatusToOrderStatus } from '../utils/statusMapper';
 
 interface GroupedTraceRowProps {
   group: GroupedTrace;
@@ -48,9 +51,12 @@ const GroupedTraceRow: React.FC<GroupedTraceRowProps> = ({ group }) => {
         <td className="p-2.5">
           {group.actions.length === 1 ? group.actions[0] : `${group.actions.length} acciones`}
         </td>
-        <td className={`p-2.5 ${latestStatusInfo.color} flex items-center gap-2`}>
-          <span>{latestStatusInfo.icon}</span>
-          <span>{group.latestTrace.status.toUpperCase()}</span>
+        <td className="p-2.5">
+          <OrderStatusBadge 
+            status={mapTraceStatusToOrderStatus(group.latestTrace.status, group.latestTrace.service, group.latestTrace.action)} 
+            size="sm"
+            showIcon={true}
+          />
         </td>
         <td className="p-2.5">{group.latestTrace.duration}ms</td>
         <td className="p-2.5">{new Date(group.latestTrace.timestamp).toLocaleTimeString()}</td>
@@ -63,25 +69,22 @@ const GroupedTraceRow: React.FC<GroupedTraceRowProps> = ({ group }) => {
         </td>
       </tr>
       
-      {/* Filas expandibles con el historial completo */}
-      {isExpanded && group.traces.slice(1).map((trace, index) => {
-        const statusInfo = getStatusInfo(trace.status);
-        return (
-          <tr key={`${group.correlationId}-${index}`} className="border-b border-gray-600 bg-gray-750">
-            <td className="p-2.5 pl-8 text-gray-400">└─</td>
-            <td className="p-2.5 text-gray-400 font-mono text-xs">{trace.correlationId}</td>
-            <td className="p-2.5 text-gray-400">{trace.service}</td>
-            <td className="p-2.5 text-gray-400">{trace.action}</td>
-            <td className={`p-2.5 ${statusInfo.color} flex items-center gap-2`}>
-              <span className="text-gray-400">{statusInfo.icon}</span>
-              <span className="text-gray-400">{trace.status.toUpperCase()}</span>
-            </td>
-            <td className="p-2.5 text-gray-400">{trace.duration}ms</td>
-            <td className="p-2.5 text-gray-400">{new Date(trace.timestamp).toLocaleTimeString()}</td>
-            <td className="p-2.5 text-gray-400">Historial</td>
-          </tr>
-        );
-      })}
+      {/* Fila expandible con timeline del flujo */}
+      {isExpanded && (
+        <tr className="border-b border-gray-600 bg-gray-750">
+          <td colSpan={8} className="p-4">
+            <OrderFlowTimeline 
+              steps={group.traces.map(trace => ({
+                status: mapTraceStatusToOrderStatus(trace.status, trace.service, trace.action),
+                timestamp: trace.timestamp,
+                service: trace.service,
+                completed: trace.status === 'completed'
+              }))}
+              currentStatus={mapTraceStatusToOrderStatus(group.latestTrace.status, group.latestTrace.service, group.latestTrace.action)}
+            />
+          </td>
+        </tr>
+      )}
     </>
   );
 };
