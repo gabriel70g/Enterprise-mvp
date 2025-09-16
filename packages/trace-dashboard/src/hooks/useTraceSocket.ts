@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client'; // Importar el cliente de Socket.IO
 import { Trace } from './useTraces';
 
-const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:8080'; // URL base del servidor
+const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:8081'; // URL base del servidor
 const RECONNECT_INTERVAL = 5000; // 5 seconds
 
 /**

@@ -13,7 +13,7 @@ const Footer: React.FC = () => {
       marginTop: 'auto', // Empuja el footer hacia abajo
       alignContent:'center'
     }}>
-      <p>© {new Date().getFullYear()} CQRS Trace Dashboard. All rights reserved.</p>
+      <p>© {new Date().getFullYear()} Trace Dashboard. All rights reserved.</p>
     </footer>
   );
 };

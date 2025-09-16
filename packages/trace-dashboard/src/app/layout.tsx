@@ -7,8 +7,8 @@ import { TraceProvider } from '../context/TraceContext'; // Import the provider
 import React from 'react';
 
 export const metadata = {
-  title: 'CQRS Trace Dashboard',
-  description: 'Real-time tracing for CQRS microservices',
+  title: 'Trace Dashboard',
+  description: 'Real-time tracing for microservices',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -82,7 +82,7 @@ services:
     command: "-js -m 8222"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "nats", "server", "check"]
+      test: ["CMD", "nc", "-z", "localhost", "4222"]
       interval: 15s
       timeout: 10s
       retries: 5
